@@ -176,6 +176,8 @@ export interface ProviderHealth {
 }
 
 export interface DashboardState {
+  /** Identifies the durable simulation record so clients can discard stale polls. */
+  runId?: string;
   demoStatus: "idle" | "running" | "complete";
   startedAt?: number;
   streamPosition: number;
@@ -197,10 +199,26 @@ export interface DashboardState {
   lastTransaction?: Transaction;
 }
 
-export type StreamEvent =
-  | { type: "state"; state: DashboardState }
-  | { type: "trace"; trace: TraceEntry }
-  | { type: "alert"; alert: AlertState };
+export interface TransactionUpdate {
+  occurredAt: string;
+  streamPosition: number;
+  transaction: Transaction;
+}
+
+export interface AgentUpdate {
+  occurredAt: string;
+  agent: AgentName;
+  status: AgentStatus;
+}
+
+/** Stateless polling response. `state` is a canonical reconciliation snapshot. */
+export interface LatestTransactionsResponse {
+  runId?: string;
+  cursor: string;
+  transactions: TransactionUpdate[];
+  agentUpdates: AgentUpdate[];
+  state: DashboardState;
+}
 
 export interface LlmGeneratedContent {
   analystExplanation: string;

@@ -4,7 +4,7 @@
 
 FraudLens is Team XCalibur’s AGENTRIX 2026 FinGuard submission. It turns a UPI-style transaction stream into an interactive account-relationship graph, detects coordinated mule-ring activity, and produces a decision record that an analyst can understand, inspect, and act on.
 
-Four agents operate over a server-side stream, the dashboard receives live state over Server-Sent Events (SSE), every rendered graph node is inspectable, and the Counterfactual Agent always produces a usable explanation, even when external LLM providers are unavailable.
+Four agents operate over a deterministic server-side simulation, and the dashboard polls for incremental results every 1.75 seconds. Every rendered graph node is inspectable, and the Counterfactual Agent always produces a usable explanation without requiring a persistent connection.
 
 > **Demo safety note:** FraudLens is a decision-support demonstration, not a production fraud-blocking service. Its risk scores, 1930 complaint drafts, and simulated institutional submissions require human and institutional review before any real action.
 
@@ -52,6 +52,11 @@ SLACK_WEBHOOK_URL=
 
 # Optional. Defaults to Groq's supported openai/gpt-oss-120b model.
 GROQ_MODEL=openai/gpt-oss-120b
+
+# Required on Vercel production deployments. Add Vercel KV to the project;
+# its integration supplies these values automatically.
+KV_REST_API_URL=
+KV_REST_API_TOKEN=
 ```
 
 Never prefix these values with `NEXT_PUBLIC_`, and never commit `.env.local`.
@@ -66,18 +71,18 @@ Boot loader (4.1s)
   -> Interactive Intelligence dashboard
 ```
 
-During the run, the orchestrator streams state to the browser. The graph, agent status rows, live reasoning feed, alerts, and trace strip update from the same in-memory run state.
+During the run, the browser calls `GET /api/transactions/latest?since=<cursor>` every 1.75 seconds. The response contains only transaction and agent updates after the cursor, plus a reconciliation snapshot used to merge the graph, reasoning feed, alerts, and trace strip. The active run definition and uploaded source rows live in Vercel KV, so a new serverless invocation can resume the same simulation.
 
 If a user uploads a CSV, the same server-side pipeline is used. The client still has the same hard dashboard handoff guarantee; unresolved work is completed with representative continuity data rather than allowing the UI to hang.
 
 ## Architecture
 
-FraudLens is a single Next.js App Router application. Keeping the UI, API routes, streaming state, agent contracts, and LLM fallback logic in one TypeScript codebase makes the demo straightforward to run and review.
+FraudLens is a single Next.js App Router application. Keeping the UI, API routes, stateless simulation replay, agent contracts, and fallback logic in one TypeScript codebase makes the demo straightforward to run and review.
 
 ```text
 Browser
   ├─ Framer Motion UI / entity selection context
-  ├─ SSE subscription: GET /api/stream
+  ├─ 1.75s polling: GET /api/transactions/latest?since=<cursor>
   └─ Route calls: demo start, upload, agent console
 
 Next.js Node runtime
@@ -87,7 +92,7 @@ Next.js Node runtime
        ├─ MonitorAgent        -> independent re-evaluation loop
        ├─ CounterfactualAgent -> leave-one-out explanation + evidence draft
        ├─ LLM provider chain  -> Gemini -> Groq -> static continuity data
-       └─ SSE fan-out         -> dashboard state, traces, alerts
+       └─ Vercel KV run record -> stateless replay and incremental responses
 ```
 
 ### Agent responsibilities
@@ -98,7 +103,7 @@ Next.js Node runtime
 | **Graph** | `IngestRisk` | Adds directed account relationships to Graphology, calculates degree/centrality, and identifies compact suspicious clusters. | `GraphAnalysis` and per-node `NodeProfile` data. |
 | **Monitor** | Entity + fresh evidence | Runs in an independent loop and rechecks watching or inconclusive entities. | `MonitorAssessment` with status, explanation, and next review time. |
 | **Counterfactual** | Confirmed `GraphAnalysis` | Removes one signal at a time, ranks causal impact, writes analyst/ELI70 explanations, and drafts a complaint. | `CounterfactualResult` plus a 1930-ready complaint draft. |
-| **Orchestrator** | All handoffs | Owns sequencing, timeouts, tracing, caching, SSE publication, and alert delivery. | `DashboardState`, `TraceEntry`, and `AlertState` events. |
+| **Orchestrator** | All handoffs | Replays deterministic sequencing, tracing, and continuity from a durable run record. | `DashboardState`, transaction updates, and agent updates. |
 
 The canonical interfaces are defined in [`lib/contracts.ts`](lib/contracts.ts). The complete AI-continuation record, including contract shapes and implementation decisions, lives in [`context.md`](context.md).
 
@@ -119,7 +124,7 @@ The server queues simultaneous LLM work, applies sliding-window request/token li
 - Each visible agent has a bounded execution guard.
 - The orchestrator completes outstanding work from continuity data after **28 seconds**.
 - The browser has an independent hard transition at **38.5 seconds**, leaving room for the dashboard cross-fade.
-- The dashboard therefore appears within **40 seconds** of a live run starting, even if the SSE connection, LLM, or a provider response stalls.
+- The dashboard therefore appears within **40 seconds** of a live run starting, even if an individual polling request or provider response stalls.
 
 ## Data and seed scenarios
 
@@ -182,7 +187,7 @@ transaction_id,timestamp,sender_vpa,receiver_vpa,amount,is_new_beneficiary
 UPI-001,2026-08-20T09:00:00.000Z,alice@upi,bob@upi,25000,true
 ```
 
-`amount` must be numeric. `is_new_beneficiary` accepts the parser’s boolean-compatible values. Uploaded data uses the same agent contracts, SSE event stream, node inspection, and continuity safeguards as the seeded demo.
+`amount` must be numeric. `is_new_beneficiary` accepts the parser’s boolean-compatible values. Uploaded data uses the same agent contracts, polling updates, node inspection, and continuity safeguards as the seeded demo.
 
 ## HTTP API surface
 
@@ -192,8 +197,9 @@ The browser uses these route handlers; they are also useful for local integratio
 | --- | --- | --- |
 | `/api/demo/start` | `POST` | Reset and start the deterministic seeded stream; returns the current `DashboardState`. |
 | `/api/upload` | `POST` | Start a custom CSV stream. Body: `{ "csv": "..." }`. |
-| `/api/state` | `GET` | Return the current in-memory `DashboardState` with no-cache headers. |
-| `/api/stream` | `GET` | SSE stream containing `state`, `trace`, and `alert` events. |
+| `/api/state` | `GET` | Return a reconstructed current `DashboardState` with no-cache headers. |
+| `/api/transactions/latest?since=<timestamp>` | `GET` | Return immediately with only the transaction and agent updates after the cursor, plus the canonical reconciliation state. |
+| `/api/stream` | `GET` | Retired; returns `410 Gone` and points clients to polling. |
 | `/api/agents` | `POST` | Invoke a console agent. Body: `{ "agent": "Graph", "entityId": "optional@upi" }`. |
 
 All API routes run in the Node.js runtime. They are intentionally stateful within one process for a reliable local/judging demo.
@@ -213,7 +219,8 @@ components/
   chase-loader.tsx
 lib/
   agents.ts             Ingest, Graph, and Monitor agent implementations
-  orchestrator.ts       Pipeline execution, timeouts, tracing, SSE fan-out
+  orchestrator.ts       Stateless simulation replay, tracing, and continuity
+  durable-run-store.ts  Vercel KV-backed active run record
   llm.ts                Provider queue, rate limiting, fallback chain
   contracts.ts          Canonical TypeScript contracts
   workspace-seed.ts     Structured historical operations data
@@ -256,18 +263,11 @@ This is expected to be non-fatal. FraudLens moves to the next provider and final
 
 ## Deployment
 
-### Recommended: Render Node Web Service
+### Vercel
 
-Render is the recommended production-demo target because the current design uses in-memory orchestrator state and long-lived SSE connections.
+FraudLens is safe to deploy as a Vercel serverless app: it has no persistent stream or background timer. Attach Vercel KV to the project so `KV_REST_API_URL` and `KV_REST_API_TOKEN` are available. Each request loads the active run record, derives the current simulation position from its durable start timestamp, and returns immediately.
 
-- **Build command:** `npm run build`
-- **Start command:** `npm run start`
-- **Environment:** Node 20+
-- Configure `GEMINI_API_KEY`, `GROQ_API_KEY`, optional `GROQ_MODEL`, and optional `SLACK_WEBHOOK_URL` in Render’s environment dashboard.
-
-### Netlify
-
-The Next.js application can be deployed with Netlify’s Next runtime. However, serverless invocation boundaries are not a durable home for the current in-memory stream state or long-lived SSE connections. For a judged live-stream demo, use Render; for a fully serverless deployment, move orchestration state and fan-out to durable services such as Redis/PostgreSQL and use a managed realtime transport.
+For local development only, the app uses an ignored `.fraudlens-local-run.json` file when KV credentials are absent. Production deliberately returns a configuration error instead of silently using process memory.
 
 ## Production hardening roadmap
 

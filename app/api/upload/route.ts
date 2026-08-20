@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { DurableStoreUnavailableError } from "@/lib/durable-run-store";
 import { orchestrator } from "@/lib/orchestrator";
 
 export const runtime = "nodejs";
@@ -20,6 +21,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({
       ok: false,
       message: error instanceof Error ? error.message : "The CSV could not be loaded.",
-    }, { status: 400 });
+    }, { status: error instanceof DurableStoreUnavailableError ? 503 : 400 });
   }
 }
