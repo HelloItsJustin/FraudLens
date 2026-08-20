@@ -4,7 +4,7 @@
 
 FraudLens is Team XCalibur’s AGENTRIX 2026 FinGuard submission. It turns a UPI-style transaction stream into an interactive account-relationship graph, detects coordinated mule-ring activity, and produces a decision record that an analyst can understand, inspect, and act on.
 
-Four agents operate over a server-side stream, the dashboard receives live state over Server-Sent Events (SSE), every rendered graph node is inspectable, and the Counterfactual Agent always produces a usable explanation—even when external LLM providers are unavailable.
+Four agents operate over a server-side stream, the dashboard receives live state over Server-Sent Events (SSE), every rendered graph node is inspectable, and the Counterfactual Agent always produces a usable explanation, even when external LLM providers are unavailable.
 
 > **Demo safety note:** FraudLens is a decision-support demonstration, not a production fraud-blocking service. Its risk scores, 1930 complaint drafts, and simulated institutional submissions require human and institutional review before any real action.
 
