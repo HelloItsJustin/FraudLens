@@ -4,20 +4,20 @@
 
 FraudLens is Team XCalibur’s AGENTRIX 2026 FinGuard submission. It turns a UPI-style transaction stream into an interactive account-relationship graph, detects coordinated mule-ring activity, and produces a decision record that an analyst can understand, inspect, and act on.
 
-This is intentionally a complete demo system rather than a static prototype: four agents operate over a server-side stream, the dashboard receives live state over Server-Sent Events (SSE), every rendered graph node is inspectable, and the Counterfactual Agent always produces a usable explanation—even when external LLM providers are unavailable.
+Four agents operate over a server-side stream, the dashboard receives live state over Server-Sent Events (SSE), every rendered graph node is inspectable, and the Counterfactual Agent always produces a usable explanation—even when external LLM providers are unavailable.
 
 > **Demo safety note:** FraudLens is a decision-support demonstration, not a production fraud-blocking service. Its risk scores, 1930 complaint drafts, and simulated institutional submissions require human and institutional review before any real action.
 
 ## What it demonstrates
 
-- **Explainable fraud-ring detection** — detects the deterministic five-account mule ring embedded in the demo stream using transaction risk signals and relationship analysis.
-- **Four real agents plus an orchestrator** — Ingest, Graph, Monitor, and Counterfactual agents have strict TypeScript contracts and a traceable server-side handoff pipeline.
-- **Live, inspectable graph** — pan, zoom, and drag graph nodes; click any rendered node to inspect its transactions, agent conclusions, timing, risk signals, and network position.
-- **Per-entity explanations** — the Risk Signal Fingerprint radar chart, Explain Like I’m 70 copy, node modal, and trace context all update from one shared selected-entity state.
-- **Operationally complete dashboard** — populated Investigations, Entities, Alerts, Casebook, Reports, and Settings views rather than placeholder routes.
-- **Graceful LLM reliability** — Gemini → Groq → deterministic static continuity data. A provider failure never produces a blank dashboard or failed demo.
-- **Time-bounded flow** — the server finalizes continuity data by 28 seconds and the client transitions from agent processing to the dashboard within 40 seconds of starting the live run.
-- **Evidence handoff** — generate a styled evidence dossier, download a PDF, open a 1930 complaint draft, and record a non-blocking institutional alert.
+- **Explainable fraud-ring detection**: detects the deterministic five-account mule ring embedded in the demo stream using transaction risk signals and relationship analysis.
+- **Four real agents plus an orchestrator**: Ingest, Graph, Monitor, and Counterfactual agents have strict TypeScript contracts and a traceable server-side handoff pipeline.
+- **Live, inspectable graph**: pan, zoom, and drag graph nodes; click any rendered node to inspect its transactions, agent conclusions, timing, risk signals, and network position.
+- **Per-entity explanations**: the Risk Signal Fingerprint radar chart, Explain Like I’m 70 copy, node modal, and trace context all update from one shared selected-entity state.
+- **Operationally complete dashboard**: populated Investigations, Entities, Alerts, Casebook, Reports, and Settings views rather than placeholder routes.
+- **Graceful LLM reliability**: Gemini → Groq → deterministic static continuity data. A provider failure never produces a blank dashboard or failed demo.
+- **Time-bounded flow**: the server finalizes continuity data by 28 seconds and the client transitions from agent processing to the dashboard within 40 seconds of starting the live run.
+- **Evidence handoff**: generate a styled evidence dossier, download a PDF, open a 1930 complaint draft, and record a non-blocking institutional alert.
 
 ## Quick start
 
@@ -108,9 +108,9 @@ The canonical interfaces are defined in [`lib/contracts.ts`](lib/contracts.ts). 
 
 Every Counterfactual request uses one function: `callLLMWithFallback()`.
 
-1. **Gemini** — `gemini-3-flash-preview`, using `GEMINI_API_KEY`.
-2. **Groq** — `openai/gpt-oss-120b` by default, using `GROQ_API_KEY`.
-3. **Static continuity** — varied, typed local content from [`lib/fallback-data.ts`](lib/fallback-data.ts), with the seeded-ring-specific record in [`lib/seeded-fallback.ts`](lib/seeded-fallback.ts).
+1. **Gemini**: `gemini-3-flash-preview`, using `GEMINI_API_KEY`.
+2. **Groq**: `openai/gpt-oss-120b` by default, using `GROQ_API_KEY`.
+3. **Static continuity**: varied, typed local content from [`lib/fallback-data.ts`](lib/fallback-data.ts), with the seeded-ring-specific record in [`lib/seeded-fallback.ts`](lib/seeded-fallback.ts).
 
 The server queues simultaneous LLM work, applies sliding-window request/token limits, validates the expected JSON schema, and uses hard timeouts. Provider switches are logged server-side for debugging but are never surfaced as a failure to the user.
 
@@ -283,6 +283,6 @@ FraudLens intentionally optimizes for deterministic judging reliability. Before 
 
 ## Team
 
-Built by **Team XCalibur** for **AGENTRIX 2026 — FinGuard: AI Fraud Detection for Inclusive Finance**.
+Built by **Team XCalibur** for **AGENTRIX 2026, FinGuard: AI Fraud Detection for Inclusive Finance**.
 
 For implementation continuity, read [`context.md`](context.md) before modifying agents, contracts, data flow, or the visual system.
